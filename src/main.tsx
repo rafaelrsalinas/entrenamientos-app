@@ -7,6 +7,7 @@ import Login from './routes/Login.tsx';
 import Home from './routes/Home.tsx';
 import Session from './routes/Session.tsx';
 import History from './routes/History.tsx';
+import ExerciseHistory from './routes/ExerciseHistory.tsx';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -17,6 +18,7 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/" element={<Home />} />
           <Route path="/session/:sessionId" element={<Session />} />
           <Route path="/history" element={<History />} />
+          <Route path="/exercise/:exerciseId" element={<ExerciseHistory />} />
         </Route>
       </Routes>
     </BrowserRouter>
