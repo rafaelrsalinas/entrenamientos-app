@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
   CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts';
 import { supabase } from '../lib/supabase';
+import { SkeletonCard } from '../components/Skeleton';
+import { useToast } from '../components/Toast';
 import type { ExerciseRow, WorkoutSetRow } from '../lib/database.types';
 
 type HistEntry = {
@@ -12,7 +14,6 @@ type HistEntry = {
   top_reps: number | null;
   top_e1rm: number | null;
   total_volume: number;
-  sets: WorkoutSetRow[];
 };
 
 function epley1RM(weight: number, reps: number): number {
@@ -21,12 +22,15 @@ function epley1RM(weight: number, reps: number): number {
 
 export default function ExerciseHistory() {
   const { exerciseId } = useParams<{ exerciseId: string }>();
+  const nav = useNavigate();
+  const toast = useToast();
   const [exercise, setExercise] = useState<ExerciseRow | null>(null);
   const [history, setHistory] = useState<HistEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!exerciseId) return;
+    let mounted = true;
     (async () => {
       const [exRes, setsRes] = await Promise.all([
         supabase.from('exercises').select('*').eq('id', exerciseId).single(),
@@ -34,18 +38,27 @@ export default function ExerciseHistory() {
           .from('workout_sets')
           .select('*, workout_sessions!inner(started_at)')
           .eq('exercise_id', exerciseId)
-          .order('created_at', { ascending: true }),
+          .order('created_at', { ascending: true })
+          .limit(1000),
       ]);
+      if (!mounted) return;
+      if (exRes.error) {
+        toast.error('Ejercicio no encontrado.');
+        setLoading(false);
+        return;
+      }
       setExercise(exRes.data as ExerciseRow);
 
-      const rows: Array<WorkoutSetRow & { workout_sessions: { started_at: string } }> =
-        (setsRes.data as unknown as Array<WorkoutSetRow & { workout_sessions: { started_at: string } }>) ?? [];
+      const rows = (setsRes.data ?? []) as unknown as Array<
+        WorkoutSetRow & { workout_sessions: { started_at: string } | null }
+      >;
 
       const byDate = new Map<string, WorkoutSetRow[]>();
       for (const row of rows) {
         const date = row.workout_sessions?.started_at?.slice(0, 10) ?? row.created_at.slice(0, 10);
-        if (!byDate.has(date)) byDate.set(date, []);
-        byDate.get(date)!.push(row);
+        const arr = byDate.get(date) ?? [];
+        arr.push(row);
+        byDate.set(date, arr);
       }
 
       const entries: HistEntry[] = [];
@@ -73,14 +86,14 @@ export default function ExerciseHistory() {
           top_reps: topReps,
           top_e1rm: top1rm ? Math.round(top1rm * 10) / 10 : null,
           total_volume: Math.round(volume),
-          sets: daySets,
         });
       }
       entries.sort((a, b) => a.date.localeCompare(b.date));
       setHistory(entries);
       setLoading(false);
     })();
-  }, [exerciseId]);
+    return () => { mounted = false; };
+  }, [exerciseId, toast]);
 
   const chartData = useMemo(
     () =>
@@ -90,21 +103,42 @@ export default function ExerciseHistory() {
     [history],
   );
 
-  if (loading) return <p>Cargando histórico…</p>;
-  if (!exercise) return <p>Ejercicio no encontrado.</p>;
+  const allTime = useMemo(() => {
+    const pr = history
+      .filter((h) => h.top_e1rm != null)
+      .sort((a, b) => (b.top_e1rm! - a.top_e1rm!))[0];
+    return pr ?? null;
+  }, [history]);
 
-  const sessionsLogged = history.length;
-  const allTime = history
-    .filter((h) => h.top_e1rm != null)
-    .reduce((a, b) => (a.top_e1rm! > b.top_e1rm! ? a : b), history[0] ?? { top_e1rm: 0, top_weight: 0, top_reps: 0 });
+  if (loading) {
+    return (
+      <>
+        <div className="row center-v gap-sm">
+          <button className="ios-back" onClick={() => nav(-1)} aria-label="Volver">‹</button>
+          <h1 className="large-title" style={{ margin: 0 }}>Ejercicio</h1>
+        </div>
+        <div className="col gap mt-md"><SkeletonCard /><SkeletonCard lines={3} /></div>
+      </>
+    );
+  }
+  if (!exercise) {
+    return (
+      <div className="card">
+        <h2>Ejercicio no encontrado</h2>
+        <button className="link" onClick={() => nav(-1)}>← Volver</button>
+      </div>
+    );
+  }
 
   return (
     <>
-      <p style={{ marginBottom: 8 }}>
-        <Link to="/" className="link small">← Volver</Link>
-      </p>
-      <h2 style={{ margin: 0 }}>{exercise.name}</h2>
-      {exercise.muscle_group && <p className="muted small">{exercise.muscle_group}</p>}
+      <div className="row center-v gap-sm">
+        <button className="ios-back" onClick={() => nav(-1)} aria-label="Volver">‹</button>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <h1 className="large-title" style={{ margin: 0 }}>{exercise.name}</h1>
+          {exercise.muscle_group && <p className="muted small" style={{ margin: 0 }}>{exercise.muscle_group}</p>}
+        </div>
+      </div>
 
       {history.length === 0 ? (
         <div className="card mt-md">
@@ -115,14 +149,14 @@ export default function ExerciseHistory() {
           <div className="row gap mt-md kpi-row">
             <div className="kpi">
               <div className="kpi-label">Sesiones</div>
-              <div className="kpi-value">{sessionsLogged}</div>
+              <div className="kpi-value">{history.length}</div>
             </div>
             <div className="kpi">
               <div className="kpi-label">PR e1RM</div>
               <div className="kpi-value">
-                {allTime.top_e1rm != null ? `${allTime.top_e1rm} kg` : '—'}
+                {allTime?.top_e1rm != null ? `${allTime.top_e1rm} kg` : '—'}
               </div>
-              {allTime.top_weight != null && (
+              {allTime?.top_weight != null && (
                 <div className="kpi-sub">
                   {allTime.top_weight} × {allTime.top_reps}
                 </div>
