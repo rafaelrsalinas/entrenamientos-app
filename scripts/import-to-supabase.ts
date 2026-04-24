@@ -12,7 +12,8 @@
  * Es idempotente: reaplicarlo elimina las fases del usuario y las vuelve a crear.
  * Los ejercicios se upsertean por (user_id, name).
  */
-import 'dotenv/config';
+import { config } from 'dotenv';
+config({ path: ['.env.local', '.env'] });
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { parseWorkbook, ParsedPhase, ParsedPlannedExercise } from './parse-workbook.ts';
 
