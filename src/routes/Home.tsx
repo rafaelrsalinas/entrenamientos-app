@@ -26,7 +26,6 @@ export default function Home() {
   const [weekVolume, setWeekVolume] = useState(0);
   const [week, setWeek] = useState<number>(1);
   const [selectedPhaseId, setSelectedPhaseId] = useState<string | null>(null);
-  const [startingDayId, setStartingDayId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Cargar fases (1 vez)
@@ -149,26 +148,10 @@ export default function Home() {
   );
   const todayDow = JS_TO_APP_DOW[new Date().getDay()];
 
-  async function startSession(dayId: string) {
+  function openDay(dayId: string) {
     if (!user || !phase) return;
-    haptic('medium');
-    setStartingDayId(dayId);
-    const { data, error } = await supabase
-      .from('workout_sessions')
-      .insert({
-        user_id: user.id,
-        phase_id: phase.id,
-        workout_day_id: dayId,
-        week_number: week,
-      })
-      .select('id')
-      .single();
-    setStartingDayId(null);
-    if (error || !data) {
-      toast.error('No se pudo iniciar');
-      return;
-    }
-    nav(`/session/${data.id}`);
+    haptic('light');
+    nav(`/day/${dayId}`, { state: { weekNumber: week, phaseId: phase.id } });
   }
 
   if (loading) {
@@ -274,8 +257,7 @@ export default function Home() {
               <button
                 key={d.id}
                 className={`day-row${isToday && !isDone ? ' today' : ''}${isDone ? ' done' : ''}`}
-                onClick={() => startSession(d.id)}
-                disabled={startingDayId === d.id}
+                onClick={() => openDay(d.id)}
               >
                 <div className="day-dow">{d.day_of_week ? DOW_LABEL[d.day_of_week] : '—'}</div>
                 <div className="day-body">
@@ -286,7 +268,7 @@ export default function Home() {
                   </div>
                   <div className="day-block">{d.description ?? ''}</div>
                 </div>
-                <div className="day-arrow">{startingDayId === d.id ? '…' : '→'}</div>
+                <div className="day-arrow">→</div>
               </button>
             );
           })

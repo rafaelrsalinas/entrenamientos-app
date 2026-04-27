@@ -1799,6 +1799,142 @@ code {
   text-transform: uppercase;
 }
 
+/* ==========================================================================
+   DAY PREVIEW (start gate)
+   ========================================================================== */
+
+.day-block-large {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-dim);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin: 4px 0 12px;
+}
+
+.ex-card.preview {
+  padding: 12px;
+  border-style: solid;
+}
+
+.start-mission {
+  width: 100%;
+  margin-top: 22px;
+  padding: 18px;
+  background: var(--orange);
+  color: #000;
+  border: none;
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 16px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.start-mission:hover { background: var(--orange-dim); color: #000; }
+.start-mission:disabled { background: var(--bg-elev); color: var(--text-dim); cursor: not-allowed; }
+
+.active-banner {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  background: rgba(255, 212, 0, 0.06);
+  border: 1px solid var(--yellow);
+  padding: 14px;
+  position: relative;
+}
+.active-banner::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--yellow);
+}
+.active-banner-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--yellow);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+.active-banner-meta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 4px;
+  letter-spacing: 0.04em;
+}
+.active-banner-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.active-banner-btn {
+  background: var(--orange);
+  color: #000;
+  border: none;
+  padding: 12px 14px;
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.active-banner-discard {
+  background: transparent;
+  border: 1px dashed var(--border-hi);
+  color: var(--text-dim);
+  padding: 12px 14px;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.active-banner-discard:hover { color: var(--red); border-color: var(--red); background: var(--red-soft); }
+
+/* ==========================================================================
+   HISTORY swipe-delete
+   ========================================================================== */
+
+.log-row-wrap {
+  position: relative;
+  overflow: hidden;
+}
+.log-delete-panel {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 88px;
+  background: var(--red);
+  color: #fff;
+  border: none;
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-radius: 0;
+  z-index: 1;
+  min-height: unset;
+}
+.log-delete-panel:hover { background: var(--red); color: #fff; }
+
+.swipe-hint {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-align: center;
+  margin-top: 14px;
+  margin-bottom: -4px;
+  text-transform: uppercase;
+}
+
 /* compat para componentes ya existentes que usan .large-title */
 .large-title {
   font-family: var(--font-display);

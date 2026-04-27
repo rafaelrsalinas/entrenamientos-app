@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { SkeletonCard } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import HazardBand from '../components/HazardBand';
+import ActionSheet from '../components/ActionSheet';
+import { haptic } from '../lib/haptics';
 import type { WorkoutSessionRow as SessionRow, WorkoutDayRow as WorkoutDay } from '../lib/database.types';
 
 type SessionWithDay = SessionRow & {
@@ -25,10 +27,97 @@ function getWeekNumber(d: Date): number {
   return Math.ceil(((d.getTime() - onejan.getTime()) / 86400000 + onejan.getDay() + 1) / 7);
 }
 
+const SWIPE_THRESHOLD = 50;
+const SWIPE_MAX = 88;
+
+type RowProps = {
+  session: SessionWithDay;
+  onOpen: (s: SessionWithDay) => void;
+  onConfirmDelete: (s: SessionWithDay) => void;
+};
+
+function HistoryItem({ session: s, onOpen, onConfirmDelete }: RowProps) {
+  const [swipeX, setSwipeX] = useState(0);
+  const startX = useRef<number | null>(null);
+  const moved = useRef(false);
+
+  const fd = formatDate(s.started_at);
+
+  function handleStart(e: React.TouchEvent) {
+    startX.current = e.touches[0].clientX;
+    moved.current = false;
+  }
+  function handleMove(e: React.TouchEvent) {
+    if (startX.current == null) return;
+    const dx = e.touches[0].clientX - startX.current;
+    if (Math.abs(dx) > 6) moved.current = true;
+    setSwipeX(Math.max(-SWIPE_MAX, Math.min(0, dx)));
+  }
+  function handleEnd() {
+    if (swipeX < -SWIPE_THRESHOLD) setSwipeX(-SWIPE_MAX);
+    else setSwipeX(0);
+    startX.current = null;
+  }
+  function handleClick() {
+    if (moved.current) return;
+    if (swipeX !== 0) {
+      setSwipeX(0);
+      return;
+    }
+    onOpen(s);
+  }
+
+  return (
+    <div className="log-row-wrap">
+      {swipeX < 0 && (
+        <button
+          className="log-delete-panel"
+          onClick={(e) => {
+            e.stopPropagation();
+            haptic('warning');
+            onConfirmDelete(s);
+            setSwipeX(0);
+          }}
+        >
+          × BORRAR
+        </button>
+      )}
+      <button
+        className="log-row"
+        style={{
+          transform: `translateX(${swipeX}px)`,
+          transition: startX.current == null ? 'transform 0.2s' : 'none',
+        }}
+        onTouchStart={handleStart}
+        onTouchMove={handleMove}
+        onTouchEnd={handleEnd}
+        onClick={handleClick}
+      >
+        <div className="log-date-box">
+          <div className="log-date-day">{fd.day}</div>
+          <div className="log-date-month">{fd.month}</div>
+        </div>
+        <div style={{ minWidth: 0, textAlign: 'left' }}>
+          <div className="log-day-name">{(s.day?.name ?? 'Sesión libre').toUpperCase()}</div>
+          <div className="log-meta">
+            {s.setCount} SERIES
+            {s.volume > 0 && ` · ${s.volume.toLocaleString()} KG`}
+            {s.durationMin > 0 && ` · ${s.durationMin}MIN`}
+            {!s.ended_at && ' · EN CURSO'}
+          </div>
+        </div>
+        <div className="log-arrow">→</div>
+      </button>
+    </div>
+  );
+}
+
 export default function History() {
   const [sessions, setSessions] = useState<SessionWithDay[]>([]);
   const [loading, setLoading] = useState(true);
+  const [toDelete, setToDelete] = useState<SessionWithDay | null>(null);
   const toast = useToast();
+  const nav = useNavigate();
 
   useEffect(() => {
     let mounted = true;
@@ -122,12 +211,25 @@ export default function History() {
     for (const s of sessions) {
       if (new Date(s.started_at).getTime() >= monthAgo) monthVol += s.volume;
     }
-    return {
-      total,
-      volume: monthVol,
-      prs: 0, // TODO: contar PRs reales del mes
-    };
+    return { total, volume: monthVol, prs: 0 };
   }, [sessions]);
+
+  function openSession(s: SessionWithDay) {
+    nav(s.ended_at ? `/session/${s.id}/summary` : `/session/${s.id}`);
+  }
+
+  async function confirmDelete() {
+    if (!toDelete) return;
+    haptic('warning');
+    const { error } = await supabase.from('workout_sessions').delete().eq('id', toDelete.id);
+    if (error) {
+      toast.error('No se pudo borrar');
+      return;
+    }
+    setSessions((prev) => prev.filter((s) => s.id !== toDelete.id));
+    toast.success('Sesión borrada');
+    setToDelete(null);
+  }
 
   return (
     <div className="container">
@@ -169,41 +271,37 @@ export default function History() {
           <p className="muted small">Tu primer entrenamiento aparecerá aquí.</p>
         </div>
       ) : (
-        Object.entries(grouped).map(([label, rows]) => (
-          <div key={label}>
-            <div className="tac-section">{label}</div>
-            <div className="col gap-sm">
-              {rows.map((s) => {
-                const fd = formatDate(s.started_at);
-                return (
-                  <Link
+        <>
+          <p className="muted small swipe-hint">← desliza una sesión para borrarla</p>
+          {Object.entries(grouped).map(([label, rows]) => (
+            <div key={label}>
+              <div className="tac-section">{label}</div>
+              <div className="col gap-sm">
+                {rows.map((s) => (
+                  <HistoryItem
                     key={s.id}
-                    to={s.ended_at ? `/session/${s.id}/summary` : `/session/${s.id}`}
-                    className="log-row"
-                  >
-                    <div className="log-date-box">
-                      <div className="log-date-day">{fd.day}</div>
-                      <div className="log-date-month">{fd.month}</div>
-                    </div>
-                    <div style={{ minWidth: 0 }}>
-                      <div className="log-day-name">
-                        {(s.day?.name ?? 'Sesión libre').toUpperCase()}
-                      </div>
-                      <div className="log-meta">
-                        {s.setCount} SERIES
-                        {s.volume > 0 && ` · ${s.volume.toLocaleString()} KG`}
-                        {s.durationMin > 0 && ` · ${s.durationMin}MIN`}
-                        {!s.ended_at && ' · EN CURSO'}
-                      </div>
-                    </div>
-                    <div className="log-arrow">→</div>
-                  </Link>
-                );
-              })}
+                    session={s}
+                    onOpen={openSession}
+                    onConfirmDelete={setToDelete}
+                  />
+                ))}
+              </div>
             </div>
-          </div>
-        ))
+          ))}
+        </>
       )}
+
+      <ActionSheet
+        open={!!toDelete}
+        onClose={() => setToDelete(null)}
+        title="¿BORRAR SESIÓN?"
+        description={
+          toDelete
+            ? `${toDelete.day?.name ?? 'Sesión'} · ${toDelete.setCount} series. Esto no se puede deshacer.`
+            : ''
+        }
+        actions={[{ label: 'BORRAR', onPress: confirmDelete, destructive: true }]}
+      />
     </div>
   );
 }

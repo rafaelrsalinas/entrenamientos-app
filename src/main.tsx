@@ -5,6 +5,7 @@ import './index.css';
 import App from './App.tsx';
 import Login from './routes/Login.tsx';
 import Home from './routes/Home.tsx';
+import DayPreview from './routes/DayPreview.tsx';
 import Session from './routes/Session.tsx';
 import Summary from './routes/Summary.tsx';
 import History from './routes/History.tsx';
@@ -22,6 +23,7 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/login" element={<Login />} />
           <Route element={<App />}>
             <Route path="/" element={<Home />} />
+            <Route path="/day/:dayId" element={<DayPreview />} />
             <Route path="/session/:sessionId" element={<Session />} />
             <Route path="/session/:sessionId/summary" element={<Summary />} />
             <Route path="/history" element={<History />} />
