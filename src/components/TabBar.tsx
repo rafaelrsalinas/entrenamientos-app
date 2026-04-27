@@ -4,14 +4,15 @@ import { haptic } from '../lib/haptics';
 type Tab = { to: string; label: string; icon: string; end?: boolean };
 
 const TABS: Tab[] = [
-  { to: '/', label: 'Hoy', icon: '🏋️', end: true },
-  { to: '/history', label: 'Historial', icon: '📅' },
-  { to: '/settings', label: 'Ajustes', icon: '⚙️' },
+  { to: '/', label: 'HOY', icon: '■', end: true },
+  { to: '/plan', label: 'PLAN', icon: '▦' },
+  { to: '/history', label: 'LOG', icon: '≡' },
+  { to: '/settings', label: 'CFG', icon: '◉' },
 ];
 
 export default function TabBar() {
   return (
-    <nav className="tabbar" aria-label="Navegación principal">
+    <nav className="tabbar" aria-label="Navegación">
       {TABS.map((tab) => (
         <NavLink
           key={tab.to}
